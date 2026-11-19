@@ -1,40 +1,59 @@
 # PokéStore Backend (Spring Boot)
 
-Migración del backend FastAPI a Java y Spring Boot. La API y la base de datos se están migrando por fases; por ahora están implementados la configuración inicial, los archivos estáticos y `GET /api/health`.
+Migración del backend FastAPI a Java 21 y Spring Boot. Están implementados los endpoints de productos, contacto, usuarios/autenticación y pedidos, además de health, OpenAPI y archivos estáticos. Consulta [PLAN_MIGRACION.md](./PLAN_MIGRACION.md) para el avance, las verificaciones y los bloqueos pendientes.
 
 ## Requisitos
 
 - Java 21
 - Maven 3.9+
-- MySQL compatible con el backend de origen
+- Docker Engine y Docker Compose v2
 
 ## Configuración
 
-Copiar `.env.example` a `.env` y configurar la conexión a MySQL. Spring Boot carga ese archivo de forma opcional al iniciar; las variables de entorno del sistema tienen prioridad. No guardar credenciales reales en el repositorio.
+Copiar `.env.example` a `.env`. Sus credenciales son solo para desarrollo local. Spring Boot carga ese archivo de forma opcional al iniciar; las variables de entorno del sistema tienen prioridad. No guardar credenciales reales en el repositorio.
 
 | Variable | Predeterminado | Uso |
 |---|---|---|
-| `DB_HOST` | `localhost` | Host MySQL |
+| `DB_HOST` | `localhost` | Host MySQL visto desde la aplicación ejecutada en el host |
 | `DB_PORT` | `3306` | Puerto MySQL |
-| `DB_USER` | `root` | Usuario MySQL |
-| `DB_PASSWORD` | vacío | Contraseña MySQL |
+| `DB_USER` | `pokestore` | Usuario de la aplicación |
+| `DB_PASSWORD` | `pokestore_local_only` | Contraseña local de la aplicación |
+| `MYSQL_ROOT_PASSWORD` | `pokestore_root_local_only` | Contraseña root del contenedor |
 | `DB_NAME` | `pokestore` | Base de datos |
 | `SERVER_PORT` | `8000` | Puerto HTTP |
 | `UPLOAD_DIR` | `uploads` | Directorio de archivos publicados en `/uploads/**` |
 | `MAX_UPLOAD_BYTES` | `2097152` | Límite multipart en bytes |
 | `CORS_ORIGINS` | `http://localhost:5173` | Orígenes CORS separados por coma |
+| `GOOGLE_CLIENT_ID` | vacío | Audiencia esperada para validar Google ID tokens |
 
-La aplicación no crea ni modifica tablas automáticamente (`ddl-auto=none`). No conectarla a una base de producción hasta que se complete la fase de inspección/migración de esquema y se tenga un respaldo.
+El perfil predeterminado no ejecuta migraciones ni crea tablas (`ddl-auto=none`). El perfil `local` activa Flyway y carga datos de demostración de forma no destructiva: inserta los 8 productos solo si el catálogo está vacío y crea el administrador solo si aún no existe. No elimina ni reemplaza filas. No usar ese perfil contra una base con datos existentes/productivos; el DDL local refleja los modelos SQLAlchemy conocidos.
 
-## Ejecutar y probar
+## Ejecutar backend y base local
 
 ```bash
-mvn test
-mvn spring-boot:run
+test -f .env || cp .env.example .env
+sudo docker compose up -d
+sudo docker compose ps
+SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
 ```
 
-`GET http://localhost:8000/api/health` responde `{"ok":true}` solo cuando MySQL responde a `SELECT 1`. Swagger UI queda en `http://localhost:8000/docs`.
+Si el usuario actual no tiene acceso al socket Docker, usar `sudo docker compose` también para `ps` y `down`. La primera ejecución descarga MySQL 8.4; el volumen nombrado conserva los datos al reiniciar o ejecutar `docker compose down`. **No usar `docker compose down -v`** salvo que se quiera borrar la base local.
+
+Con el servidor iniciado, `GET http://localhost:8000/api/health` responde `{"ok":true}` cuando MySQL responde a `SELECT 1`. Swagger UI queda en `http://localhost:8000/docs`. Para compilar el artefacto y ejecutar las pruebas: `mvn clean package`. Para detener MySQL sin borrar datos: `sudo docker compose down`.
+
+El esquema Flyway y el seed se ejecutan al arrancar Spring Boot con el perfil local. Para ingresar al administrador demo: `admin@pokestore.cl` / `admin123` (solo local).
+
+## Ejecutar el frontend
+
+En otra terminal:
+
+```bash
+cd /home/sol/Repos/poke-store
+npm run dev
+```
+
+Abrir `http://localhost:5173`. El frontend consulta el backend en `http://localhost:8000`; usa `localhost` en ambos, ya que `127.0.0.1` es otro origen y no coincide con el CORS local predeterminado. Para detener cada servidor, usar `Ctrl+C` en su terminal.
 
 ## Estado
 
-Consultar [PLAN_MIGRACION.md](./PLAN_MIGRACION.md) para el alcance, el seguimiento por fases y las decisiones pendientes. En este inicio todavía no se han migrado los endpoints de negocio.
+La implementación local incluye los endpoints y reglas de negocio descritos en el plan. El frontend React/Vite está en `/home/sol/Repos/poke-store`; su catálogo cargó los productos desde Spring Boot y el login del administrador demo funcionó en navegador. Quedan pendientes ampliar pruebas automatizadas y probar más flujos de compra. No hay una base desplegada con datos; si en el futuro se conecta una base existente, revisar su esquema antes de habilitar Flyway. El servidor de prueba no queda ejecutándose en segundo plano.

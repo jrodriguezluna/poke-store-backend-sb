@@ -3,10 +3,12 @@ spring:
     name: poke-store-backend-sb
   config:
     import: optional:file:.env[.properties]
+  flyway:
+    enabled: false
   datasource:
     url: "jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:pokestore}?useUnicode=true&characterEncoding=UTF-8"
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:}
+    username: ${DB_USER:pokestore}
+    password: ${DB_PASSWORD:pokestore_local_only}
     hikari:
       connection-test-query: SELECT 1
       max-lifetime: 280000
@@ -32,3 +34,4 @@ springdoc:
 pokestore:
   upload-dir: ${UPLOAD_DIR:uploads}
   cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+  google-client-id: ${GOOGLE_CLIENT_ID:}

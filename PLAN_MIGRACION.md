@@ -1,6 +1,6 @@
 # Plan de migración: PokéStore Backend (FastAPI → Spring Boot)
 
-**Estado:** migración en curso; fase 1 implementada y validada sin MySQL. La inspección del esquema y la validación positiva de conexión siguen pendientes por inaccesibilidad de la DB desde este entorno.  
+**Estado:** no hay una base desplegada con datos; el objetivo es probar el frontend y el backend como proyecto local. El esquema y seed de demostración se ejecutan en MySQL 8.4 en Docker. Los endpoints de fases 2–5 están implementados; faltan ampliar pruebas automatizadas y validar Google con credenciales reales.
 **Origen:** `/home/sol/Repos/poke-store-backend`  
 **Destino:** `/home/sol/Repos/poke-store-backend-sb`  
 **Objetivo:** sustituir la implementación FastAPI por una aplicación Java/Spring Boot, conservando el contrato consumido por el frontend y permitiendo conectar la nueva aplicación a la base MySQL existente sin perder datos.
@@ -13,7 +13,7 @@ Este documento será la referencia para ejecutar la migración. Al avanzar, se a
 
 - Aplicación Spring Boot con API REST, persistencia MySQL, validaciones, configuración por entorno y documentación OpenAPI.
 - Migración de los recursos actuales: productos, usuarios, pedidos y contacto.
-- Conservación de la base de datos, el formato de respuestas y los códigos HTTP que utiliza el frontend.
+- Conservación del formato de respuestas y los códigos HTTP que utiliza el frontend; la base de desarrollo se crea localmente desde cero.
 - Compatibilidad con imágenes locales servidas bajo `/uploads` y URLs remotas de imágenes.
 - Migración segura del esquema existente y documentación para preparar una base vacía.
 - Pruebas que comprueben contratos, reglas de negocio y operaciones transaccionales.
@@ -58,7 +58,7 @@ Este documento será la referencia para ejecutar la migración. Al avanzar, se a
 
 ## 3. Modelo de datos a conservar
 
-Usar las tablas existentes, preservando nombres de tabla/columna, tipos, claves y relaciones. Confirmar el esquema real de MySQL antes de definir las anotaciones/migraciones definitivas.
+Modelar las tablas del backend Python, preservando nombres de tabla/columna, tipos, claves y relaciones. No hay un esquema desplegado con datos que se deba conservar; Flyway crea la base local de demostración.
 
 | Tabla | Columnas / relación relevante |
 |---|---|
@@ -100,74 +100,75 @@ src/main/java/<paquete-base>/
 ### Fase 0 — Preparación y línea base
 
 - [x] Confirmar el estado del destino: al inicio contenía solo este plan; no había código que preservar.
-- [x] Revisar estructura, dependencias y contratos del backend de origen. No se encontró frontend en los directorios disponibles.
-- [ ] Inspeccionar metadata de MySQL en modo solo lectura. Intento realizado, pero el host configurado no resuelve desde este entorno; no se modificó la DB. Esta limitación bloquea la fase 2 hasta obtener acceso o un DDL/export seguro.
+- [x] Revisar estructura, dependencias y contratos del backend Python, y localizar el frontend React/Vite en `/home/sol/Repos/poke-store`.
+- [x] Confirmar con el usuario que no existe una base desplegada con datos; el destino de esta migración es la base local de demostración.
 - [x] Registrar Java 21.0.13 y Maven 3.9.12; seleccionar Spring Boot 4.1.2 y Springdoc 3.2.0. Java y Maven quedaron instalados para compilar el proyecto.
 - [x] Definir paquete base `cl.pokestore.backend` y comandos Maven; no se encontró infraestructura de despliegue que requiera un perfil adicional.
 
-**Salida / puerta:** plataforma definida y origen intacto. La falta de acceso a MySQL quedó registrada; se puede ejecutar la fase 1, pero no comenzar la fase 2 sin verificar el esquema.
+**Salida / puerta:** plataforma y frontend definidos. No hay migración de datos productivos en el alcance actual; si aparece una base existente, se debe verificar su esquema antes de conectarla.
 
 ### Fase 1 — Esqueleto ejecutable y configuración
 
 - [x] Crear proyecto Maven/Spring Boot 4.1.2 para Java 21 y la aplicación principal en `cl.pokestore.backend`.
 - [x] Configurar variables de entorno, conexión MySQL y pool; desactivar cambios automáticos de esquema y configurar el dialecto para permitir que el servidor arranque sin DB disponible.
-- [ ] Verificar conexión a MySQL y contraseña con caracteres especiales cuando el host sea accesible.
+- [x] Verificar conexión a MySQL 8.4 local y manejo de contraseña con `@`, `/`, `#`, `?` mediante el perfil local.
 - [x] Implementar CORS, estáticos `/uploads/**`, OpenAPI y `GET /api/health` con comprobación efectiva de DB.
 - [x] Añadir `.gitignore`, plantilla de variables sin secretos y README con instalación/ejecución.
 - [x] Ejecutar `mvn -f /home/sol/Repos/poke-store-backend-sb/pom.xml test`: compilación y dos pruebas de health correctas.
 - [x] Arrancar sin DB y comprobar que `GET /api/health` responde 500 con `{"error":"No se pudo completar la operación de base de datos"}`.
 - [x] Empaquetar con `mvn -f /home/sol/Repos/poke-store-backend-sb/pom.xml clean package`; smoke tests HTTP verifican `/docs` (redirige y carga), `/v3/api-docs` (200) y `/uploads/**` (200).
-- [ ] Comprobar el health positivo (`{"ok":true}`) contra un MySQL de pruebas.
+- [x] Comprobar el health positivo (`{"ok":true}`) contra MySQL 8.4 en el contenedor local.
 
-**Salida / puerta:** el esqueleto compila, arranca sin conectividad a MySQL y no incluye secretos. La prueba positiva de conexión queda pendiente; completar antes de considerar cerrada esta fase.
+**Salida / puerta:** el esqueleto compila, arranca con y sin DB, se conecta a MySQL local y no incluye credenciales locales en Git.
 
 ### Fase 2 — Esquema, entidades y compatibilidad de datos
 
-- [ ] Implementar las cinco entidades y sus claves/relaciones, usando nombres exactos de las tablas existentes.
-- [ ] Comparar el mapeo JPA con el esquema MySQL existente; comprobar nullable, defaults, índices, collation, timestamps y generación de IDs.
-- [ ] Crear migraciones Flyway aditivas para columnas ausentes y backfill de categoría, sin borrar datos.
-- [ ] Definir procedimiento de baseline controlado para una BD ya inicializada; bloquear/evitar migraciones destructivas en el perfil normal.
-- [ ] Probar lectura/escritura y relaciones contra MySQL compatible con producción.
+- [x] Añadir Docker Compose con MySQL 8.4, puerto enlazado solo a localhost, volumen persistente y una migración Flyway local derivada de los modelos Python conocidos.
+- [x] Implementar las cinco entidades y sus claves/relaciones, usando nombres de tabla/columna derivados del modelo Python.
+- [x] Confirmar que no existe esquema desplegado que requiera comparación, migraciones aditivas o baseline; si se conecta una BD existente en el futuro, revisar DDL antes de habilitar Flyway.
+- [x] Configurar Flyway para crear el esquema de una base vacía en el perfil local, sin ejecutar migraciones en el perfil predeterminado.
+- [x] Validar arranque, validación JPA/Flyway y lectura/escritura de los flujos migrados contra MySQL 8.4 local.
 
-**Salida / puerta:** una BD existente puede ser reconocida/migrada sin pérdida; el modelo coincide con datos históricos.
+**Salida / puerta:** el esquema local deriva de los modelos Python y pasa validación JPA en una base vacía; no hay una base existente que migrar.
 
 ### Fase 3 — Catálogo y contacto
 
-- [ ] Migrar DTO, validaciones y endpoints de productos, incluido filtro de activos, orden, soft delete y respuesta 204.
-- [ ] Preservar el valor `tipo` al serializar aunque actualmente no sea editable en `ProductoIn`.
-- [ ] Migrar `/api/contacto` y respuesta 201 `{ok:true}`.
-- [ ] Implementar errores de no encontrado, validación y URL de imagen en el formato acordado.
-- [ ] Añadir pruebas de integración de códigos, JSON, filtros, orden y soft delete.
+- [x] Migrar DTO, validaciones y endpoints de productos, incluido filtro de activos, orden, soft delete y respuesta 204.
+- [x] Preservar el valor `tipo` al serializar aunque actualmente no sea editable en `ProductoIn`.
+- [x] Migrar `/api/contacto` y respuesta 201 `{ok:true}`.
+- [x] Implementar errores de no encontrado, validación y URL de imagen en el formato acordado.
+- [ ] Ampliar las pruebas automatizadas de integración para códigos, JSON, filtros, orden y soft delete; hay pruebas focalizadas y verificaciones HTTP manuales, no cobertura persistente de todos esos casos.
 
-**Salida / puerta:** contratos de catálogo/contacto verificados contra casos representativos del backend Python.
+**Salida / puerta:** endpoints implementados y flujos HTTP representativos verificados localmente; falta completar la matriz automatizada de regresión.
 
 ### Fase 4 — Usuarios y autenticación
 
-- [ ] Migrar registro, login, listado, actualización y eliminación; conservar normalización de email, límites, unicidad y manejo de usuario con pedidos.
-- [ ] Implementar bcrypt compatible con hashes anteriores y probar login de un hash existente.
-- [ ] Implementar validación de dominio y Google ID token; conservar errores de configuración, proveedor y token.
-- [ ] Confirmar la política actual de autorización: rutas de listado/edición/borrado y capacidad de cambiar `rol` no están protegidas en origen. Preservar paridad en esta migración o solicitar aprobación para endurecer seguridad en un cambio separado; no introducir filtros que bloqueen el frontend por accidente.
-- [ ] Probar colisiones concurrentes de email y login federado de primer acceso.
+- [x] Migrar registro, login, listado, actualización y eliminación; conservar normalización de email, límites, unicidad y manejo de usuario con pedidos.
+- [x] Implementar bcrypt compatible con hashes anteriores y verificar un hash bcrypt generado por Python.
+- [x] Implementar validación de dominio y Google ID token; conservar errores de configuración, proveedor y token.
+- [x] Registrar la política actual: rutas de listado/edición/borrado y cambio de `rol` siguen sin control de acceso, igual que en el origen.
+- [ ] Probar colisiones concurrentes de email y login federado con credenciales reales; Google está implementado, pero falta `GOOGLE_CLIENT_ID` para una verificación de extremo a extremo.
+- [ ] Añadir pruebas automatizadas persistentes de registro, login, actualización, eliminación y Google.
 
-**Salida / puerta:** flujos locales y Google comprobados, sin exponer `password_hash` ni romper contraseñas almacenadas.
+**Salida / puerta:** flujos locales se probaron manualmente, incluido bcrypt compatible y no exposición de hashes; la validación real de Google y la cobertura automatizada siguen pendientes.
 
 ### Fase 5 — Pedidos y consistencia de stock
 
-- [ ] Migrar DTO con nombres JSON camelCase `usuarioId`, `productoId` y `precioUnit`.
-- [ ] Implementar consolidación de líneas repetidas, rechazo de usuario/productos inexistentes o inactivos y errores de stock.
-- [ ] Calcular total con los precios vigentes; persistir pedido/items y descuento de stock en una transacción.
-- [ ] Definir y probar estrategia de concurrencia (bloqueo de filas o actualización condicional) que impida que dos pedidos consuman el mismo stock disponible.
-- [ ] Migrar historial ordenado descendentemente y mantener snapshots `precio_unit` y nombre de producto según la semántica actual.
-- [ ] Probar rollback completo en fallas y asociación de items con productos/pedidos.
+- [x] Migrar DTO con nombres JSON camelCase `usuarioId`, `productoId` y `precioUnit`.
+- [x] Implementar consolidación de líneas repetidas, rechazo de usuario/productos inexistentes o inactivos y errores de stock.
+- [x] Calcular total con los precios vigentes; persistir pedido/items y descuento de stock en una transacción.
+- [x] Implementar bloqueo de filas de producto para serializar pedidos que compiten por stock.
+- [x] Migrar historial ordenado descendentemente y mantener snapshots `precio_unit` y nombre de producto según la semántica actual.
+- [ ] Añadir pruebas de integración persistentes para rollback, asociaciones y solicitudes concurrentes; se verificaron manualmente consolidación de líneas, descuento de stock, historial y rechazo por stock insuficiente.
 
-**Salida / puerta:** no hay pedido parcial, stock negativo ni discrepancia entre total y detalle bajo errores y concurrencia.
+**Salida / puerta:** implementación transaccional con bloqueo de filas; falta demostrar rollback/concurrencia mediante pruebas de integración.
 
 ### Fase 6 — Herramientas operativas y paridad
 
-- [ ] Proporcionar comando/documentación para preparar una BD vacía con datos demo, separado del arranque y explícitamente destructivo si recrea tablas.
+- [x] Proporcionar seed local no destructivo: crear ocho productos solo si el catálogo está vacío y la cuenta demo solo si no existe; no recrea tablas ni reemplaza datos.
 - [ ] Documentar migración de BD existente, backup previo y verificación posterior de conteos/datos.
 - [ ] Comparar OpenAPI/ejemplos de respuestas de ambas aplicaciones para cada ruta y verificar frontend/proxy con `/api` y `/uploads`.
-- [ ] Completar pruebas de regresión, revisar logs/errores y validar configuración en entorno limpio.
+- [ ] Completar pruebas de regresión, revisar logs/errores y validar configuración en entorno limpio. Hasta ahora pasan las pruebas focalizadas existentes y se comprobaron `/docs`, `/v3/api-docs`, `/uploads/**`, health y flujos HTTP representativos.
 
 **Salida / puerta:** documentación ejecutable y evidencia de paridad, sin acciones de pérdida de datos por defecto.
 
@@ -195,7 +196,7 @@ src/main/java/<paquete-base>/
 
 ## 7. Riesgos y decisiones pendientes
 
-1. **Esquema real no inspeccionado:** el origen tiene migración aditiva, pero el esquema productivo podría diferir. Es obligatorio revisar DDL/metadata antes de Flyway.
+1. **Base existente futura:** no hay base desplegada con datos en el alcance actual. Si se conecta una posteriormente, revisar DDL/metadata y diseñar baseline antes de habilitar Flyway.
 2. **Hash bcrypt:** confirmar longitud/formato y compatibilidad entre la biblioteca Python actual y el encoder Java.
 3. **Regla de dominio inconsistente:** el set del origen permite `duocuc.cl`, pero el mensaje de error menciona solo `gmail.com`, `outlook.com` y `duoc.cl`. Por paridad se debe preservar el set efectivo salvo decisión explícita.
 4. **Sin autenticación de rutas administrativas:** el origen permite listar usuarios, cambiar roles y operaciones de catálogo sin protección. Registrar el riesgo; no alterar el contrato durante la traducción sin aprobación.
@@ -210,11 +211,11 @@ Al comenzar una fase, marcarla como `En curso` en este documento; al terminar, m
 
 | Fase | Estado | Evidencia / notas |
 |---|---|---|
-| 0. Preparación y línea base | Completa con restricción | Java 21.0.13, Maven 3.9.12, Boot 4.1.2, Springdoc 3.2.0. El host MySQL no resuelve en este entorno; no se modificó la DB. |
-| 1. Esqueleto y configuración | En curso | `clean package` pasa; `/docs`, OpenAPI y `/uploads` verificados; health negativo da 500 `{error:...}`. Falta comprobar conexión positiva a un MySQL accesible. |
-| 2. Esquema y entidades | Bloqueada | Requiere acceso a MySQL o un DDL/export seguro; el host configurado no resuelve desde este entorno. |
-| 3. Catálogo y contacto | Pendiente | |
-| 4. Usuarios y autenticación | Pendiente | |
-| 5. Pedidos y stock | Pendiente | |
-| 6. Operación y paridad | Pendiente | |
+| 0. Preparación y línea base | Completa | Java 21.0.13, Maven 3.9.12, Boot 4.1.2 y Springdoc 3.2.0. El usuario confirmó que no hay base desplegada con datos; frontend React/Vite localizado en `/home/sol/Repos/poke-store`. |
+| 1. Esqueleto y configuración | Completa | Tests y `clean package` pasan; `/docs`, OpenAPI y `/uploads` verificados; health comprobado con DB ausente y con MySQL local; contraseña con caracteres especiales probada. |
+| 2. Esquema y entidades | Completa para base local vacía | Cinco entidades y relaciones, Flyway V1 y validación JPA contra MySQL 8.4. No hay base existente que migrar. |
+| 3. Catálogo y contacto | Implementada; cobertura de regresión pendiente | El catálogo del frontend mostró los ocho productos cargados desde Spring Boot; ampliar pruebas automatizadas. |
+| 4. Usuarios y autenticación | Implementada; verificación externa pendiente | Login del administrador demo funcionó desde el frontend. Google requiere credencial real; faltan pruebas automatizadas. |
+| 5. Pedidos y stock | Implementada; pruebas transaccionales pendientes | Pedido transaccional con bloqueo de stock; smoke tests de líneas repetidas, historial y stock insuficiente; falta probar rollback/concurrencia en integración. |
+| 6. Operación y paridad | En curso | Perfil local inicializa ocho productos y administrador demo de forma idempotente. Build frontend y prueba visual del catálogo/login completados; faltan comparación completa de contratos y regresión. |
 | 7. Corte y retiro | No iniciado; requiere autorización | |
