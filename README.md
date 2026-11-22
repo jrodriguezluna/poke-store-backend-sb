@@ -28,6 +28,8 @@ Copiar `.env.example` a `.env`. Sus credenciales son solo para desarrollo local.
 
 El perfil predeterminado no ejecuta migraciones ni crea tablas (`ddl-auto=none`). El perfil `local` activa Flyway y carga datos de demostración de forma no destructiva: inserta los 8 productos solo si el catálogo está vacío y crea el administrador solo si aún no existe. No elimina ni reemplaza filas. No usar ese perfil contra una base con datos existentes/productivos; el DDL local refleja los modelos SQLAlchemy conocidos.
 
+Para habilitar el login Google, crea un OAuth Client ID de tipo aplicación web en Google Cloud, agrega `http://localhost:5173` como origen JavaScript autorizado y configura el mismo Client ID en `GOOGLE_CLIENT_ID` del `.env` del backend y `VITE_GOOGLE_CLIENT_ID` del `.env.local` del frontend. Reinicia ambos servidores después de cambiar las variables. El Client ID es público y no debe confundirse con un client secret. El backend exige correo verificado y permite solo los dominios configurados en `UsuarioService`.
+
 ## Ejecutar backend y base local
 
 ```bash
