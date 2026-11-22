@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import cl.pokestore.backend.blog.BlogRepository;
 import cl.pokestore.backend.producto.ProductoEntity;
 import cl.pokestore.backend.producto.ProductoRepository;
 import cl.pokestore.backend.usuario.UsuarioEntity;
@@ -29,18 +30,23 @@ class LocalSeedRunnerTest {
     private UsuarioRepository usuarioRepository;
 
     @Mock
+    private BlogRepository blogRepository;
+
+    @Mock
     private ApplicationArguments arguments;
 
     @Test
     void seedsProductsAndDemoAdminOnlyWhenMissing() {
         when(productoRepository.count()).thenReturn(0L);
+        when(blogRepository.count()).thenReturn(0L);
         when(usuarioRepository.existsByEmail("admin@pokestore.cl")).thenReturn(false);
-        LocalSeedRunner runner = new LocalSeedRunner(productoRepository, usuarioRepository);
+        LocalSeedRunner runner = new LocalSeedRunner(productoRepository, usuarioRepository, blogRepository);
 
         runner.run(arguments);
 
         ArgumentCaptor<UsuarioEntity> userCaptor = ArgumentCaptor.forClass(UsuarioEntity.class);
         verify(productoRepository).saveAll(anyList());
+        verify(blogRepository).saveAll(anyList());
         verify(usuarioRepository).save(userCaptor.capture());
         UsuarioEntity admin = userCaptor.getValue();
         assertThat(admin.getEmail()).isEqualTo("admin@pokestore.cl");
@@ -50,12 +56,14 @@ class LocalSeedRunnerTest {
     @Test
     void doesNotOverwriteExistingLocalData() {
         when(productoRepository.count()).thenReturn(1L);
+        when(blogRepository.count()).thenReturn(2L);
         when(usuarioRepository.existsByEmail("admin@pokestore.cl")).thenReturn(true);
-        LocalSeedRunner runner = new LocalSeedRunner(productoRepository, usuarioRepository);
+        LocalSeedRunner runner = new LocalSeedRunner(productoRepository, usuarioRepository, blogRepository);
 
         runner.run(arguments);
 
         verify(productoRepository, never()).saveAll(anyList());
+        verify(blogRepository, never()).saveAll(anyList());
         verify(usuarioRepository, never()).save(any(UsuarioEntity.class));
     }
 }

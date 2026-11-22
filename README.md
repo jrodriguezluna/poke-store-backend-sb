@@ -43,7 +43,24 @@ Si el usuario actual no tiene acceso al socket Docker, usar `sudo docker compose
 
 Con el servidor iniciado, `GET http://localhost:8000/api/health` responde `{"ok":true}` cuando MySQL responde a `SELECT 1`. Swagger UI queda en `http://localhost:8000/docs`. Para compilar el artefacto y ejecutar las pruebas: `mvn clean package`. Para detener MySQL sin borrar datos: `sudo docker compose down`.
 
-El esquema Flyway y el seed se ejecutan al arrancar Spring Boot con el perfil local. Para ingresar al administrador demo: `admin@pokestore.cl` / `admin123` (solo local).
+El esquema Flyway y el seed se ejecutan al arrancar Spring Boot con el perfil local.
+
+### Administrador de demostración
+
+El seed crea esta cuenta solo si todavía no existe:
+
+- **Email:** `admin@pokestore.cl`
+- **Contraseña inicial:** `admin123`
+
+Es una cuenta exclusiva para desarrollo local. La contraseña se guarda con BCrypt; el seed no cambia la contraseña si la cuenta ya existía. No uses estas credenciales en un entorno compartido o desplegado.
+
+### Blogs
+
+Con el perfil `local`, Flyway crea las tablas de blogs y el seed agrega los dos artículos de demostración actuales solo cuando la tabla está vacía. Los cambios hechos desde la GUI se guardan en MySQL y no son reemplazados en los siguientes arranques.
+
+La página pública obtiene los artículos desde la API. El panel de administración permite crear, editar y eliminar artículos, incluidas sus secciones ordenadas. Las imágenes se indican como URL HTTP(S) o como una ruta accesible desde el navegador; el backend no almacena archivos de imagen.
+
+Endpoints: `GET /api/blogs`, `GET /api/blogs/{id}`, `POST /api/blogs`, `PUT /api/blogs/{id}` y `DELETE /api/blogs/{id}`. **Importante:** por el alcance acordado, la GUI oculta las acciones a usuarios no-admin, pero el backend no autoriza las rutas `POST`, `PUT` y `DELETE`. No exponer esta API en un entorno público hasta implementar autorización verificable en servidor.
 
 ## Ejecutar el frontend
 
@@ -58,4 +75,4 @@ Abrir `http://localhost:5173`. El frontend consulta el backend en `http://localh
 
 ## Estado
 
-La implementación local incluye los endpoints y reglas de negocio descritos en el plan. El frontend React/Vite está en `/home/sol/Repos/poke-store`; su catálogo cargó los productos desde Spring Boot y el login del administrador demo funcionó en navegador. Quedan pendientes ampliar pruebas automatizadas y probar más flujos de compra. No hay una base desplegada con datos; si en el futuro se conecta una base existente, revisar su esquema antes de habilitar Flyway. El servidor de prueba no queda ejecutándose en segundo plano.
+La implementación local incluye los endpoints y reglas de negocio descritos en el plan, incluida la gestión de blogs. El frontend React/Vite está en `/home/sol/Repos/poke-store`; su catálogo cargó productos desde Spring Boot y el login del administrador demo funcionó en navegador. Para las verificaciones, `mvn clean package`, `npm run build` y `npm run test:coverage` pasan. Quedan pendientes probar más flujos de compra. No hay una base desplegada con datos; si en el futuro se conecta una base existente, revisar su esquema antes de habilitar Flyway.

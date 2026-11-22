@@ -2,6 +2,9 @@ package cl.pokestore.backend.config;
 
 import java.util.List;
 
+import cl.pokestore.backend.blog.BlogEntity;
+import cl.pokestore.backend.blog.BlogRepository;
+import cl.pokestore.backend.blog.BlogSeccionEntity;
 import cl.pokestore.backend.producto.ProductoEntity;
 import cl.pokestore.backend.producto.ProductoRepository;
 import cl.pokestore.backend.usuario.UsuarioEntity;
@@ -44,12 +47,69 @@ public class LocalSeedRunner implements ApplicationRunner {
                     IMAGE_URL.formatted(39), "Jigglypuff de felpa, versión cantante.", 22)
     );
 
+    private static final List<BlogEntity> BLOGS = List.of(
+            crearBlog(
+                    "Guía de Autenticidad",
+                    "Cómo identificar cartas Pokémon graduadas falsas (PSA, Beckett y CGC)",
+                    "Aprende a revisar certificaciones, hologramas y estuches para reconocer señales de una carta graduada falsa.",
+                    "Entrenador Daniel",
+                    "/assets/img/blogs/CartasGradeadas.jpg",
+                    "Cartas Pokémon graduadas",
+                    "El coleccionismo de cartas del juego de cartas coleccionables Pokémon (TCG) ha alcanzado cotas históricas. Debido a su valor, también han proliferado réplicas que imitan las cartas y los estuches sellados de empresas como PSA, BGS (Beckett) y CGC.",
+                    List.of(
+                            new BlogSeccionEntity(
+                                    "1. Verificación del código de certificación y código QR",
+                                    "Cada carta graduada legítima cuenta con un número de serie único emitido por la empresa certificadora. Ingresa el código en el sitio oficial y comprueba que coincidan el año, la edición, el nombre del Pokémon y la calificación. En slabs modernos, revisa también que el QR lleve a la base de datos oficial."
+                            ),
+                            new BlogSeccionEntity(
+                                    "2. Holograma de seguridad y microimpresión",
+                                    "Los estuches genuinos incorporan elementos holográficos y microtexto nítido. Las imitaciones pueden usar etiquetas planas o estampados sin efecto tridimensional ni detalles legibles con lupa."
+                            ),
+                            new BlogSeccionEntity(
+                                    "3. Calidad del plástico y sellado",
+                                    "Un estuche auténtico debe tener un sellado uniforme. Restos de pegamento, holgura en los bordes o grietas blanquecinas pueden ser señales de manipulación."
+                            )
+                    ),
+                    "Compra a vendedores confiables y verifica siempre el número de certificación en la fuente oficial antes de pagar."
+            ),
+            crearBlog(
+                    "Accesorios y cuidados",
+                    "Los mejores accesorios y protectores para conservar tus cartas Pokémon",
+                    "Micas, toploaders y carpetas apropiadas ayudan a proteger las cartas del polvo, la humedad y los dobleces.",
+                    "Entrenador Jeff",
+                    "/assets/img/blogs/AlbumCartas.webp",
+                    "Álbum y cartas Pokémon",
+                    "El valor de una carta no depende únicamente de su rareza: su estado también importa. Una doblez, un rasguño o bordes desgastados pueden afectar su conservación. Estos accesorios ayudan a proteger la colección en el uso y almacenamiento diario.",
+                    List.of(
+                            new BlogSeccionEntity(
+                                    "1. Doble enfundado: perfect fit y funda estándar",
+                                    "Una funda perfect fit ajustada, combinada con una funda estándar, añade una barrera contra polvo, humedad y derrames. Manipula las cartas con las manos limpias y evita forzar las esquinas al enfundarlas."
+                            ),
+                            new BlogSeccionEntity(
+                                    "2. Toploaders y protectores rígidos",
+                                    "Para cartas valiosas o que transportas con frecuencia, un protector rígido aporta estructura y reduce el riesgo de dobleces e impactos. Guarda la carta enfundada antes de introducirla."
+                            ),
+                            new BlogSeccionEntity(
+                                    "3. Carpetas con carga lateral",
+                                    "Prefiere carpetas con bolsillos cosidos y carga lateral. Evita archivadores cuyos anillos metálicos puedan presionar las cartas y guárdalas lejos de la humedad y la luz solar directa."
+                            )
+                    ),
+                    "Elige materiales de archivo libres de ácido y PVC, y mantén la colección en un lugar seco, fresco y sin exposición solar directa."
+            )
+    );
+
     private final ProductoRepository productoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final BlogRepository blogRepository;
 
-    public LocalSeedRunner(ProductoRepository productoRepository, UsuarioRepository usuarioRepository) {
+    public LocalSeedRunner(
+            ProductoRepository productoRepository,
+            UsuarioRepository usuarioRepository,
+            BlogRepository blogRepository
+    ) {
         this.productoRepository = productoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.blogRepository = blogRepository;
     }
 
     @Override
@@ -57,6 +117,11 @@ public class LocalSeedRunner implements ApplicationRunner {
         if (productoRepository.count() == 0) {
             productoRepository.saveAll(PRODUCTS);
             log.info("Seed local: se insertaron {} productos de demostración", PRODUCTS.size());
+        }
+
+        if (blogRepository.count() == 0) {
+            blogRepository.saveAll(BLOGS);
+            log.info("Seed local: se insertaron {} artículos de demostración", BLOGS.size());
         }
 
         if (!usuarioRepository.existsByEmail(ADMIN_EMAIL)) {
@@ -72,5 +137,30 @@ public class LocalSeedRunner implements ApplicationRunner {
             ));
             log.info("Seed local: se creó la cuenta de demostración {}", ADMIN_EMAIL);
         }
+    }
+
+    private static BlogEntity crearBlog(
+            String etiqueta,
+            String titulo,
+            String resumen,
+            String autor,
+            String imagen,
+            String textoAlternativo,
+            String introduccion,
+            List<BlogSeccionEntity> secciones,
+            String consejo
+    ) {
+        BlogEntity blog = new BlogEntity(
+                etiqueta,
+                titulo,
+                resumen,
+                autor,
+                imagen,
+                textoAlternativo,
+                introduccion,
+                consejo
+        );
+        blog.reemplazarSecciones(secciones);
+        return blog;
     }
 }
