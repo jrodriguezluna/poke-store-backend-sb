@@ -36,7 +36,7 @@ public class ApiExceptionHandler {
         String message = fields.isEmpty()
                 ? "Datos inválidos"
                 : "Datos inválidos: " + String.join(", ", fields);
-        return ResponseEntity.unprocessableEntity().body(new ApiError(message));
+        return ResponseEntity.unprocessableContent().body(new ApiError(message));
     }
 
     @ExceptionHandler({
@@ -53,7 +53,7 @@ public class ApiExceptionHandler {
         String message = field == null
                 ? "Datos inválidos"
                 : "Datos inválidos: " + field;
-        return ResponseEntity.unprocessableEntity().body(new ApiError(message));
+        return ResponseEntity.unprocessableContent().body(new ApiError(message));
     }
 
     @ExceptionHandler(DataAccessException.class)

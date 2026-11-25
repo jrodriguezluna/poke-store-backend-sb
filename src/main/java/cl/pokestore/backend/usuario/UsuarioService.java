@@ -131,7 +131,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> listar() {
-        return repository.findAll(Sort.by(Sort.Direction.ASC, "id")).stream()
+        return repository.findAll(Sort.by(Sort.Direction.ASC, UsuarioEntity::getId)).stream()
                 .map(UsuarioResponse::from)
                 .toList();
     }
@@ -201,7 +201,7 @@ public class UsuarioService {
 
     private void validarDominioRegistro(String email) {
         if (!dominioPermitido(email)) {
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "Datos inválidos: email");
+            throw new ApiException(HttpStatus.UNPROCESSABLE_CONTENT, "Datos inválidos: email");
         }
     }
 

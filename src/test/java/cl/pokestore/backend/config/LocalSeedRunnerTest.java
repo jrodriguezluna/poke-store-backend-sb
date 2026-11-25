@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import cl.pokestore.backend.blog.BlogRepository;
-import cl.pokestore.backend.producto.ProductoEntity;
 import cl.pokestore.backend.producto.ProductoRepository;
 import cl.pokestore.backend.usuario.UsuarioEntity;
 import cl.pokestore.backend.usuario.UsuarioRepository;

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,7 +61,7 @@ class BlogControllerTest {
                                   "secciones": []
                                 }
                                 """))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.error").value(allOf(
                         containsString("etiqueta"),
                         containsString("titulo"),
@@ -100,6 +101,21 @@ class BlogControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(4))
                 .andExpect(jsonPath("$.secciones[0].texto").value("Revisa el código."));
+    }
+
+    @Test
+    void updatesBlogWithItsSections() throws Exception {
+        when(service.actualizar(org.mockito.ArgumentMatchers.eq(4), any(BlogRequest.class)))
+                .thenReturn(response());
+
+        mockMvc.perform(put("/api/blogs/4")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.titulo").value("Guía de cartas"))
+                .andExpect(jsonPath("$.secciones[0].titulo").value("Verificación"));
+
+        verify(service).actualizar(org.mockito.ArgumentMatchers.eq(4), any(BlogRequest.class));
     }
 
     private BlogResponse response() {
