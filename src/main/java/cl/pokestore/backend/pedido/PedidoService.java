@@ -94,4 +94,21 @@ public class PedidoService {
                 .map(PedidoHistoryResponse::from)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<PedidoHistoryResponse> historialTodos() {
+        return pedidoRepository.findAllWithDetails().stream()
+                .map(PedidoHistoryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PedidoHistoryResponse detalle(Integer pedidoId, Integer usuarioId) {
+        PedidoEntity pedido = pedidoRepository.findDetailById(pedidoId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Pedido no encontrado"));
+        if (usuarioId != null && !pedido.getUsuario().getId().equals(usuarioId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "No puedes acceder a pedidos de otra cuenta");
+        }
+        return PedidoHistoryResponse.from(pedido);
+    }
 }

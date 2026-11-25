@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record PokeStoreProperties(
         String uploadDir,
         String corsOrigins,
-        String googleClientId
+        String googleClientId,
+        String jwtSecret
 ) {
 }

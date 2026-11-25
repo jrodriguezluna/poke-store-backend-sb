@@ -29,6 +29,8 @@ Copy-Item .env.example .env
 
 Edita `.env` antes de iniciar. Los valores incluidos son solo para desarrollo local; no uses esas credenciales en producción.
 
+`JWT_SECRET` firma los tokens de sesión. El valor de ejemplo es solo local; en otros entornos configura una clave aleatoria de al menos 32 bytes y no la subas al repositorio.
+
 ## Opción A: MySQL en Docker Compose
 
 Instala e inicia Docker Desktop en Windows o Docker Engine + Compose v2 en Linux. Desde la raíz del backend:
@@ -116,6 +118,10 @@ mvn spring-boot:run
 
 El servidor queda en <http://localhost:8000>. `GET /api/health` responde `{"ok":true}` cuando MySQL está accesible; Swagger UI está en <http://localhost:8000/docs>. Detén el servidor con `Ctrl+C`.
 
+El login normal y Google mantienen los campos del usuario y agregan `token` a la respuesta. El JWT firmado con HS256 expira en 12 horas; el frontend lo envía como `Authorization: Bearer ...`. Cambiar `JWT_SECRET` invalida los tokens emitidos con el valor anterior.
+
+Los endpoints de escritura de productos y blogs, la administración de usuarios y las operaciones de pedidos requieren JWT. Los clientes solo pueden consultar y modificar su propio perfil y sus pedidos; el rol `admin` puede gestionar esos recursos. El rol `vendedor`, asignado por un administrador desde el panel de usuarios, puede consultar todos los pedidos y sus detalles, además del catálogo público; no puede crear pedidos ni modificar productos, blogs o usuarios. La vista del vendedor no muestra esos otros accesos y no expone datos personales del comprador en las órdenes. Después de un cambio de rol, la persona debe iniciar sesión nuevamente para recibir un token con los permisos actualizados; los tokens anteriores siguen válidos hasta expirar (máximo 12 horas). El catálogo, la lectura de blogs, contacto y health siguen siendo públicos.
+
 Para compilar y ejecutar las pruebas:
 
 ```bash
@@ -164,4 +170,4 @@ El seed no cambia la contraseña de una cuenta existente. No uses estas credenci
 
 Con el perfil `local`, Flyway crea las tablas de blogs y el seed agrega artículos de demostración solo cuando la tabla está vacía. La GUI permite gestionar artículos y sus secciones.
 
-**Importante:** por el alcance actual, la GUI oculta las acciones a usuarios no-admin, pero el backend no autoriza las rutas `POST`, `PUT` y `DELETE` de blogs. No expongas esta API en un entorno público hasta implementar autorización verificable en servidor.
+Las rutas `POST`, `PUT` y `DELETE` de blogs requieren un JWT con rol `admin`; ocultar los controles en la GUI no sustituye esta comprobación del backend.

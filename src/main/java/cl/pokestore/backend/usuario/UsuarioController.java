@@ -2,9 +2,13 @@ package cl.pokestore.backend.usuario;
 
 import java.util.List;
 
+import cl.pokestore.backend.common.ApiException;
+import cl.pokestore.backend.security.JwtTokenService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class UsuarioController {
 
     private final UsuarioService service;
+    private final JwtTokenService tokenService;
 
-    public UsuarioController(UsuarioService service) {
+    public UsuarioController(UsuarioService service, JwtTokenService tokenService) {
         this.service = service;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/registro")
@@ -30,13 +36,15 @@ public class UsuarioController {
     }
 
     @PostMapping("/login")
-    public UsuarioResponse login(@Valid @RequestBody LoginRequest request) {
-        return service.login(request);
+    public SesionResponse login(@Valid @RequestBody LoginRequest request) {
+        UsuarioResponse usuario = service.login(request);
+        return SesionResponse.from(usuario, tokenService.generar(usuario));
     }
 
     @PostMapping("/auth/google")
-    public UsuarioResponse loginGoogle(@Valid @RequestBody GoogleLoginRequest request) {
-        return service.loginGoogle(request);
+    public SesionResponse loginGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        UsuarioResponse usuario = service.loginGoogle(request);
+        return SesionResponse.from(usuario, tokenService.generar(usuario));
     }
 
     @GetMapping("/usuarios")
@@ -47,14 +55,23 @@ public class UsuarioController {
     @PutMapping("/usuarios/{id}")
     public UsuarioResponse modificar(
             @PathVariable Integer id,
-            @Valid @RequestBody UsuarioUpdateRequest request
+            @Valid @RequestBody UsuarioUpdateRequest request,
+            Authentication authentication
     ) {
-        return service.modificar(id, request);
+        boolean esAdmin = esAdmin(authentication);
+        if (!esAdmin && !authentication.getName().equals(String.valueOf(id))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "No puedes modificar otra cuenta");
+        }
+        return service.modificar(id, request, esAdmin);
     }
 
     @DeleteMapping("/usuarios/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private boolean esAdmin(Authentication authentication) {
+        return authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_ADMIN"));
     }
 }

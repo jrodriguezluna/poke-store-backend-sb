@@ -46,6 +46,9 @@ class PedidoServiceTest {
     void setUp() {
         usuario = org.mockito.Mockito.mock(UsuarioEntity.class);
         producto = org.mockito.Mockito.mock(ProductoEntity.class);
+    }
+
+    private void prepararProductosParaPedido() {
         when(usuarioRepository.findById(7)).thenReturn(Optional.of(usuario));
         when(producto.getId()).thenReturn(10);
         when(productoRepository.findActiveForUpdate(any())).thenReturn(List.of(producto));
@@ -53,6 +56,7 @@ class PedidoServiceTest {
 
     @Test
     void repeatedProductLinesAreCombinedIntoOneOrderItem() {
+        prepararProductosParaPedido();
         when(producto.getStock()).thenReturn(5);
         when(producto.getPrecio()).thenReturn(1500);
         when(pedidoRepository.saveAndFlush(any(PedidoEntity.class)))
@@ -74,6 +78,7 @@ class PedidoServiceTest {
 
     @Test
     void insufficientStockDoesNotChangeStockOrSaveAnOrder() {
+        prepararProductosParaPedido();
         when(producto.getStock()).thenReturn(1);
         when(producto.getNombre()).thenReturn("Figura Eevee");
 
@@ -86,5 +91,19 @@ class PedidoServiceTest {
 
         verify(producto, never()).setStock(any());
         verify(pedidoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void usersCannotReadAnotherUsersOrderDetail() {
+        PedidoEntity pedido = org.mockito.Mockito.mock(PedidoEntity.class);
+        UsuarioEntity propietario = org.mockito.Mockito.mock(UsuarioEntity.class);
+        when(pedidoRepository.findDetailById(21)).thenReturn(Optional.of(pedido));
+        when(pedido.getUsuario()).thenReturn(propietario);
+        when(propietario.getId()).thenReturn(8);
+
+        assertThatThrownBy(() -> service.detalle(21, 7))
+                .isInstanceOf(ApiException.class)
+                .extracting(exception -> ((ApiException) exception).getStatus())
+                .isEqualTo(HttpStatus.FORBIDDEN);
     }
 }

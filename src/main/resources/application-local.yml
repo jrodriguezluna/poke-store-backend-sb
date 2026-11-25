@@ -6,3 +6,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+
+pokestore:
+  jwt-secret: ${JWT_SECRET:local-only-pokestore-jwt-signing-key-change-before-deploy}

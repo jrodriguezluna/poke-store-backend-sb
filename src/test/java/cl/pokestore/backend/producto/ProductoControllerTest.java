@@ -10,26 +10,37 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.List;
 
 import cl.pokestore.backend.common.ApiException;
 import cl.pokestore.backend.config.PokeStoreProperties;
+import cl.pokestore.backend.security.JwtTokenService;
+import cl.pokestore.backend.security.SecurityConfiguration;
+import cl.pokestore.backend.usuario.UsuarioResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ProductoController.class)
 @EnableConfigurationProperties(PokeStoreProperties.class)
+@Import(SecurityConfiguration.class)
+@TestPropertySource(properties = "pokestore.jwt-secret=test-only-jwt-secret-with-at-least-32-bytes")
 class ProductoControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JwtTokenService tokenService;
 
     @MockitoBean
     private ProductoService service;
@@ -37,6 +48,7 @@ class ProductoControllerTest {
     @Test
     void invalidProductReturns422WithFieldName() throws Exception {
         mockMvc.perform(post("/api/productos")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -77,8 +89,10 @@ class ProductoControllerTest {
     @Test
     void createsProduct() throws Exception {
         when(service.crear(any(ProductoRequest.class))).thenReturn(producto());
+        String token = tokenService.generar(usuario("admin"));
 
         mockMvc.perform(post("/api/productos")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequest()))
                 .andExpect(status().isCreated())
@@ -94,6 +108,7 @@ class ProductoControllerTest {
                 .thenReturn(producto());
 
         mockMvc.perform(put("/api/productos/7")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequest()))
                 .andExpect(status().isOk())
@@ -104,15 +119,43 @@ class ProductoControllerTest {
 
     @Test
     void deleteProductReturnsNoContent() throws Exception {
-        mockMvc.perform(delete("/api/productos/7"))
+        mockMvc.perform(delete("/api/productos/7").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
 
         verify(service).eliminar(7);
     }
 
+    @Test
+    void productWritesRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest()))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Autenticación requerida"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void productWritesRequireAdminRole() throws Exception {
+        mockMvc.perform(post("/api/productos")
+                        .with(user("7").roles("CLIENTE"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("No tienes permisos para esta operación"));
+
+        verifyNoInteractions(service);
+    }
+
     private ProductoResponse producto() {
         return new ProductoResponse(7, "Pikachu", "Electrico", "Cartas",
                 1500, null, "Carta de Pikachu", 10);
+    }
+
+    private UsuarioResponse usuario(String rol) {
+        return new UsuarioResponse(7, "Ana", "ana@gmail.com", null,
+                "Calle 123", "Metropolitana", "Santiago", rol);
     }
 
     private String validRequest() {

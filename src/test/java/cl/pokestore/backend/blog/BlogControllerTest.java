@@ -12,13 +12,16 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import java.util.List;
 import cl.pokestore.backend.common.ApiException;
 import cl.pokestore.backend.config.PokeStoreProperties;
+import cl.pokestore.backend.security.SecurityConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +30,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(BlogController.class)
 @EnableConfigurationProperties(PokeStoreProperties.class)
+@Import(SecurityConfiguration.class)
 class BlogControllerTest {
 
     @Autowired
@@ -50,6 +54,7 @@ class BlogControllerTest {
     @Test
     void invalidBlogRequestReturns422AndDoesNotCallService() throws Exception {
         mockMvc.perform(post("/api/blogs")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -85,7 +90,7 @@ class BlogControllerTest {
 
     @Test
     void deleteReturnsNoContent() throws Exception {
-        mockMvc.perform(delete("/api/blogs/7"))
+        mockMvc.perform(delete("/api/blogs/7").with(user("admin").roles("ADMIN")))
                 .andExpect(status().isNoContent());
 
         verify(service).eliminar(7);
@@ -96,6 +101,7 @@ class BlogControllerTest {
         when(service.crear(any(BlogRequest.class))).thenReturn(response());
 
         mockMvc.perform(post("/api/blogs")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequest()))
                 .andExpect(status().isCreated())
@@ -109,6 +115,7 @@ class BlogControllerTest {
                 .thenReturn(response());
 
         mockMvc.perform(put("/api/blogs/4")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(validRequest()))
                 .andExpect(status().isOk())

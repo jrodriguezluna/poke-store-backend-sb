@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -15,9 +16,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import cl.pokestore.backend.config.PokeStoreProperties;
+import cl.pokestore.backend.security.SecurityConfiguration;
 
 @WebMvcTest(HealthController.class)
 @EnableConfigurationProperties(PokeStoreProperties.class)
+@Import(SecurityConfiguration.class)
 class HealthControllerTest {
 
     @Autowired

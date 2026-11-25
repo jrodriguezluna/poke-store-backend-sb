@@ -137,7 +137,7 @@ public class UsuarioService {
     }
 
     @Transactional
-    public UsuarioResponse modificar(Integer id, UsuarioUpdateRequest request) {
+    public UsuarioResponse modificar(Integer id, UsuarioUpdateRequest request, boolean puedeCambiarRol) {
         UsuarioEntity usuario = repository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
         usuario.setNombre(request.nombre().strip());
@@ -146,7 +146,9 @@ public class UsuarioService {
         usuario.setDireccion(request.direccion().strip());
         usuario.setRegion(request.region());
         usuario.setComuna(request.comuna());
-        usuario.setRol(request.rol() == null ? "cliente" : request.rol());
+        if (puedeCambiarRol) {
+            usuario.setRol(request.rol() == null ? "cliente" : request.rol());
+        }
         if (request.password() != null) {
             usuario.setPasswordHash(passwordEncoder.encode(request.password()));
         }
