@@ -1,78 +1,167 @@
 # PokéStore Backend (Spring Boot)
 
-Migración del backend FastAPI a Java 21 y Spring Boot. Están implementados los endpoints de productos, contacto, usuarios/autenticación y pedidos, además de health, OpenAPI y archivos estáticos. Consulta [PLAN_MIGRACION.md](./PLAN_MIGRACION.md) para el avance, las verificaciones y los bloqueos pendientes.
+Backend REST de PokéStore, migrado desde FastAPI a Java 21 y Spring Boot. Incluye productos, contacto, usuarios/autenticación, pedidos, health, OpenAPI y archivos estáticos.
 
 ## Requisitos
 
-- Java 21
-- Maven 3.9+
-- Docker Engine y Docker Compose v2
+- Java 21.
+- Maven 3.9 o superior.
+- MySQL 8.4 o compatible.
+- Docker Engine + Docker Compose v2 solo si quieres ejecutar MySQL en un contenedor.
 
-## Configuración
+La aplicación Spring Boot se ejecuta en el host con Maven. Docker Compose, cuando se usa, levanta únicamente MySQL.
 
-Copiar `.env.example` a `.env`. Sus credenciales son solo para desarrollo local. Spring Boot carga ese archivo de forma opcional al iniciar; las variables de entorno del sistema tienen prioridad. No guardar credenciales reales en el repositorio.
+## Preparación
 
-| Variable | Predeterminado | Uso |
-|---|---|---|
-| `DB_HOST` | `localhost` | Host MySQL visto desde la aplicación ejecutada en el host |
-| `DB_PORT` | `3306` | Puerto MySQL |
-| `DB_USER` | `pokestore` | Usuario de la aplicación |
-| `DB_PASSWORD` | `pokestore_local_only` | Contraseña local de la aplicación |
-| `MYSQL_ROOT_PASSWORD` | `pokestore_root_local_only` | Contraseña root del contenedor |
-| `DB_NAME` | `pokestore` | Base de datos |
-| `SERVER_PORT` | `8000` | Puerto HTTP |
-| `UPLOAD_DIR` | `uploads` | Directorio de archivos publicados en `/uploads/**` |
-| `MAX_UPLOAD_BYTES` | `2097152` | Límite multipart en bytes |
-| `CORS_ORIGINS` | `http://localhost:5173` | Orígenes CORS separados por coma |
-| `GOOGLE_CLIENT_ID` | vacío | Audiencia esperada para validar Google ID tokens |
+Desde la raíz del repositorio, copia la plantilla de variables:
 
-El perfil predeterminado no ejecuta migraciones ni crea tablas (`ddl-auto=none`). El perfil `local` activa Flyway y carga datos de demostración de forma no destructiva: inserta los 8 productos solo si el catálogo está vacío y crea el administrador solo si aún no existe. No elimina ni reemplaza filas. No usar ese perfil contra una base con datos existentes/productivos; el DDL local refleja los modelos SQLAlchemy conocidos.
-
-Para habilitar el login Google, crea un OAuth Client ID de tipo aplicación web en Google Cloud, agrega `http://localhost:5173` como origen JavaScript autorizado y configura el mismo Client ID en `GOOGLE_CLIENT_ID` del `.env` del backend y `VITE_GOOGLE_CLIENT_ID` del `.env.local` del frontend. Reinicia ambos servidores después de cambiar las variables. El Client ID es público y no debe confundirse con un client secret. El backend exige correo verificado y permite solo los dominios configurados en `UsuarioService`.
-
-## Ejecutar backend y base local
+### Linux
 
 ```bash
-test -f .env || cp .env.example .env
-sudo docker compose up -d
-sudo docker compose ps
+cp .env.example .env
+```
+
+### Windows (PowerShell)
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edita `.env` antes de iniciar. Los valores incluidos son solo para desarrollo local; no uses esas credenciales en producción.
+
+## Opción A: MySQL en Docker Compose
+
+Instala e inicia Docker Desktop en Windows o Docker Engine + Compose v2 en Linux. Desde la raíz del backend:
+
+### Linux
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Si tu usuario no tiene acceso al daemon de Docker, ejecuta esos comandos con los permisos requeridos por tu distribución (por ejemplo, `sudo docker compose ...`).
+
+### Windows (PowerShell o CMD)
+
+```powershell
+docker compose up -d
+docker compose ps
+```
+
+Compose publica MySQL solo en `127.0.0.1` del host, en el puerto indicado por `DB_PORT` (por defecto `3306`). Como Spring Boot corre fuera del contenedor, `DB_HOST=localhost` es correcto.
+
+El volumen nombrado conserva los datos al reiniciar o ejecutar `docker compose down`. **No uses `docker compose down -v`** salvo que quieras eliminar la base de datos local.
+
+## Opción B: MySQL instalado en el host (sin Docker)
+
+Instala MySQL 8.4 o compatible y asegúrate de que el servicio esté iniciado.
+
+En Linux, según la distribución:
+
+```bash
+sudo systemctl start mysql
+sudo systemctl status mysql
+```
+
+En algunas distribuciones el servicio se llama `mariadb`. En Windows, encuentra el servicio instalado y usa su nombre real:
+
+```powershell
+Get-Service *mysql*
+Start-Service MySQL84
+```
+
+Conéctate como administrador de MySQL (`mysql -u root -p`; en Linux también puede funcionar `sudo mysql`) y crea la base y el usuario configurados en `.env`:
+
+```sql
+CREATE DATABASE pokestore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'pokestore'@'localhost' IDENTIFIED BY 'cambia_esta_clave';
+GRANT ALL PRIVILEGES ON pokestore.* TO 'pokestore'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+En `.env`, configura `DB_HOST=localhost`, `DB_PORT=3306`, `DB_NAME=pokestore`, `DB_USER=pokestore` y la misma contraseña que asignaste al usuario. Si MySQL está en otro equipo, usa en `DB_HOST` su hostname/IP accesible desde el host donde se ejecuta Spring Boot, y permite la conexión en la red/firewall y en los permisos de MySQL.
+
+## Ejecutar el backend
+
+Verifica Java y Maven:
+
+```bash
+java -version
+mvn -version
+```
+
+Al ejecutar con el perfil `local`, Flyway aplica el esquema y carga datos de demostración sin borrar filas existentes.
+
+### Linux
+
+```bash
 SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
 ```
 
-Si el usuario actual no tiene acceso al socket Docker, usar `sudo docker compose` también para `ps` y `down`. La primera ejecución descarga MySQL 8.4; el volumen nombrado conserva los datos al reiniciar o ejecutar `docker compose down`. **No usar `docker compose down -v`** salvo que se quiera borrar la base local.
+### Windows (PowerShell)
 
-Con el servidor iniciado, `GET http://localhost:8000/api/health` responde `{"ok":true}` cuando MySQL responde a `SELECT 1`. Swagger UI queda en `http://localhost:8000/docs`. Para compilar el artefacto y ejecutar las pruebas: `mvn clean package`. Para detener MySQL sin borrar datos: `sudo docker compose down`.
-
-El esquema Flyway y el seed se ejecutan al arrancar Spring Boot con el perfil local.
-
-### Administrador de demostración
-
-El seed crea esta cuenta solo si todavía no existe:
-
-- **Email:** `admin@pokestore.cl`
-- **Contraseña inicial:** `admin123`
-
-Es una cuenta exclusiva para desarrollo local. La contraseña se guarda con BCrypt; el seed no cambia la contraseña si la cuenta ya existía. No uses estas credenciales en un entorno compartido o desplegado.
-
-### Blogs
-
-Con el perfil `local`, Flyway crea las tablas de blogs y el seed agrega los dos artículos de demostración actuales solo cuando la tabla está vacía. Los cambios hechos desde la GUI se guardan en MySQL y no son reemplazados en los siguientes arranques.
-
-La página pública obtiene los artículos desde la API. El panel de administración permite crear, editar y eliminar artículos, incluidas sus secciones ordenadas. Las imágenes se indican como URL HTTP(S) o como una ruta accesible desde el navegador; el backend no almacena archivos de imagen.
-
-Endpoints: `GET /api/blogs`, `GET /api/blogs/{id}`, `POST /api/blogs`, `PUT /api/blogs/{id}` y `DELETE /api/blogs/{id}`. **Importante:** por el alcance acordado, la GUI oculta las acciones a usuarios no-admin, pero el backend no autoriza las rutas `POST`, `PUT` y `DELETE`. No exponer esta API en un entorno público hasta implementar autorización verificable en servidor.
-
-## Ejecutar el frontend
-
-En otra terminal:
-
-```bash
-cd /home/sol/Repos/poke-store
-npm run dev
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "local"
+mvn spring-boot:run
 ```
 
-Abrir `http://localhost:5173`. El frontend consulta el backend en `http://localhost:8000`; usa `localhost` en ambos, ya que `127.0.0.1` es otro origen y no coincide con el CORS local predeterminado. Para detener cada servidor, usar `Ctrl+C` en su terminal.
+### Windows (CMD)
 
-## Estado
+```bat
+set SPRING_PROFILES_ACTIVE=local
+mvn spring-boot:run
+```
 
-La implementación local incluye los endpoints y reglas de negocio descritos en el plan, incluida la gestión de blogs. El frontend React/Vite está en `/home/sol/Repos/poke-store`; su catálogo cargó productos desde Spring Boot y el login del administrador demo funcionó en navegador. Para las verificaciones, `mvn clean package`, `npm run build` y `npm run test:coverage` pasan. Quedan pendientes probar más flujos de compra. No hay una base desplegada con datos; si en el futuro se conecta una base existente, revisar su esquema antes de habilitar Flyway.
+El servidor queda en <http://localhost:8000>. `GET /api/health` responde `{"ok":true}` cuando MySQL está accesible; Swagger UI está en <http://localhost:8000/docs>. Detén el servidor con `Ctrl+C`.
+
+Para compilar y ejecutar las pruebas:
+
+```bash
+mvn clean package
+```
+
+## Ejecutar backend y frontend juntos (Linux, Bash 4.3+)
+
+Con ambos repositorios en carpetas hermanas:
+
+```text
+repos/
+├── poke-store-backend-sb/
+└── poke-store/
+```
+
+Primero inicia MySQL (con Docker Compose o instalado localmente), configura `.env`, e instala las dependencias del frontend según su README. Después, desde la raíz de este backend:
+
+```bash
+chmod +x ./dev.sh
+./dev.sh
+```
+
+Para indicar otra ubicación del frontend:
+
+```bash
+./dev.sh /ruta/al/poke-store
+```
+
+El script inicia Spring Boot con el perfil `local` y Vite en una sola terminal. No inicia MySQL, no instala dependencias ni ejecuta `docker compose`. Presiona `Ctrl+C` para detener ambos servidores. En Windows, ejecútalos en dos terminales siguiendo las instrucciones de cada repositorio.
+
+## Google Sign-In
+
+Para habilitarlo, crea un OAuth Client ID tipo aplicación web en Google Cloud, agrega `http://localhost:5173` como origen JavaScript autorizado y configura el mismo Client ID en `GOOGLE_CLIENT_ID` del backend y `VITE_GOOGLE_CLIENT_ID` del frontend. Reinicia ambos servidores después de cambiar las variables. El backend exige correo verificado y permite solo los dominios configurados en el servicio de usuarios.
+
+## Administrador de demostración y datos
+
+El perfil `local` crea el administrador solo si aún no existe:
+
+- Email: `admin@pokestore.cl`
+- Contraseña inicial: `admin123`
+
+El seed no cambia la contraseña de una cuenta existente. No uses estas credenciales en un entorno compartido o desplegado.
+
+## Blogs
+
+Con el perfil `local`, Flyway crea las tablas de blogs y el seed agrega artículos de demostración solo cuando la tabla está vacía. La GUI permite gestionar artículos y sus secciones.
+
+**Importante:** por el alcance actual, la GUI oculta las acciones a usuarios no-admin, pero el backend no autoriza las rutas `POST`, `PUT` y `DELETE` de blogs. No expongas esta API en un entorno público hasta implementar autorización verificable en servidor.
